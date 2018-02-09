@@ -39,11 +39,14 @@ namespace MonoDevelop.Ide.BuildOutputView
 		Error,
 		Warning,
 		Message,
-		Diagnostics
+		Diagnostics,
+		Parameters
 	}
 
 	class BuildOutputNode : TreePosition
 	{
+		const string ParametersNodeName = "Parameters";
+
 		public virtual BuildOutputNodeType NodeType { get; set; }
 		public virtual string Message { get; set; }
 		public virtual string FullMessage { get; set; }
@@ -57,13 +60,60 @@ namespace MonoDevelop.Ide.BuildOutputView
 		List<BuildOutputNode> children;
 		public virtual IReadOnlyList<BuildOutputNode> Children => children;
 
-		public void AddChild (BuildOutputNode child)
+		public BuildOutputNode AddChild (BuildOutputNode child)
 		{
 			if (children == null) {
 				children = new List<BuildOutputNode> ();
 			}
 
 			children.Add (child);
+
+			return child;
+		}
+
+		public BuildOutputNode FindChild (string message)
+		{
+			if (Children != null) {
+				foreach (var child in Children) {
+					if (child.Message == message) {
+						return child;
+					}
+				}
+			}
+
+			return null;
+		}
+
+		public void AddParameter (string name, string value)
+		{
+			var parametersNode = FindChild (ParametersNodeName);
+			if (parametersNode == null) {
+				parametersNode = new BuildOutputNode {
+					NodeType = BuildOutputNodeType.Parameters,
+					Message = ParametersNodeName,
+					FullMessage = ParametersNodeName,
+					Parent = this,
+					HasErrors = false,
+					HasWarnings = false,
+					HasData = false // set this to false so that this doesn't show up in non-diagnostics view
+				};
+
+				if (children == null) {
+					children = new List<BuildOutputNode> ();
+				}
+
+				children.Insert (0, parametersNode);
+			}
+
+			parametersNode.AddChild (new BuildOutputNode {
+				NodeType = BuildOutputNodeType.Diagnostics,
+				Message = $"{name} = {value}",
+				FullMessage = $"{name} = {value}",
+				Parent = parametersNode,
+				HasErrors = false,
+				HasWarnings = false,
+				HasData = false
+			});
 		}
 
 		public bool HasChildren => Children != null && Children.Count > 0;

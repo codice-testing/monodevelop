@@ -98,8 +98,7 @@ namespace MonoDevelop.Ide.BuildOutputView
 				// TODO: we should probably parse them and associate those stats
 				// with the correct build step, so that we get stats for those
 			} else {
-				AddNode (e.Importance == MessageImportance.Low ? BuildOutputNodeType.Diagnostics : BuildOutputNodeType.Message,
-				         e.Message, e.Message, false, e.Timestamp);
+				this.ProcessMessageEvent (e);
 			}
 		}
 
@@ -141,6 +140,35 @@ namespace MonoDevelop.Ide.BuildOutputView
 			}
 
 			EndCurrentNode (e.Message, e.Timestamp);
+		}
+	}
+
+	static class BinaryLogHelpers
+	{
+		const string TaskParameterMessagePrefix = @"Task Parameter:";
+
+		public static void ProcessMessageEvent (this MSBuildOutputProcessor processor, BuildMessageEventArgs e)
+		{
+			if (String.IsNullOrEmpty (e.Message)) {
+				return;
+			}
+
+			string shortMessage = e.Message;
+
+			switch (e.Message[0]) {
+			case 'T':
+				if (shortMessage.StartsWith (TaskParameterMessagePrefix)) {
+					string [] param = e.Message.Substring (TaskParameterMessagePrefix.Length).Split ('=');
+					if (param.Length >= 2) {
+						processor.CurrentNode.AddParameter (param [0], param [1]);
+						return;
+					}
+				}
+				break;
+			}
+
+			processor.AddNode (e.Importance == MessageImportance.Low ? BuildOutputNodeType.Diagnostics : BuildOutputNodeType.Message,
+			                   shortMessage, e.Message, false, e.Timestamp);
 		}
 	}
 }
